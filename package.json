@@ -16,7 +16,7 @@
     "@storybook/addon-actions": "^5.0.0",
     "@storybook/react": "^5.0.0",
     "@types/redux-mock-store": "^1.0.3",
-    "antd": "^4.10.0",
+    "antd": "^4.16.13",
     "brace": "^0.10.0",
     "clipboard-plus": "^1.0.0",
     "core-js": "^3.9.0",
