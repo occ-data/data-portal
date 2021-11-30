@@ -14,7 +14,7 @@
     "@gen3/guppy": "^0.13.0",
     "@gen3/ui-component": "^0.10.0",
     "@storybook/addon-actions": "^5.0.0",
-    "@storybook/react": "^5.0.0",
+    "@storybook/react": "^6.1.7",
     "@types/redux-mock-store": "^1.0.3",
     "antd": "^4.10.0",
     "brace": "^0.10.0",
