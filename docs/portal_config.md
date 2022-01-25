@@ -146,6 +146,14 @@ Below is an example, with inline comments describing what each JSON block config
       "systemUseText" : [""] // required; Message to show in a popup which is used to notify the user of site policy and use restrictions
       "expireUseMsgDays" : optional; 0, // the number of days to keep cookie once the "Accept" button is clicked, the default is 0 which sets the cookie to be a browser session cookie
     },
+    "footer": {
+      "links": [
+        {
+          "text": "Link title",
+          "href": "https://example.com"
+        }
+      ]
+    },
     "footerLogos": [ // optional; logos to be displayed in the footer, usually sponsors
       {
         "src": "/src/img/gen3.png", // required; src path for the image
@@ -595,6 +603,7 @@ Below is an example, with inline comments describing what each JSON block config
   "resourceBrowser": {), // see Resource Browser documentation
   "workspacePageTitle": "", // title to display above workspacePageDescription
   "workspacePageDescription": "", // html to display above the workspace options
+  "studyViewerConfig": [],//See docs/study_viewer.md for more details.
   "useArboristUI": false, // optional; set true to enable Arborist UI; defaults to false if absent
   "hideSubmissionIfIneligible": true, // optional; only works if Arborist UI is enabled; if set to true, link/buttons to /submission page will be hidden to users who don't have permissions to submit data; defaults to false if absent
   "showArboristAuthzOnProfile": false, // optional; set true to list Arborist resources on profile page
