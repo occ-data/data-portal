@@ -13,7 +13,6 @@ import {
 } from '../localconf';
 import Popup from '../components/Popup';
 import Spinner from '../components/Spinner';
-// import WorldMapChart from './WorldMapChart';
 import IllinoisMapChart from './IllinoisMapChart';
 import CountWidget from './CountWidget';
 import ChartCarousel from './ChartCarousel';
@@ -25,8 +24,9 @@ import './Covid19Dashboard.less';
 - add it to ReduxCovid19Dashboard.handleDashboardData();
 - add it to covid19DashboardConfig.chartsConfig in the relevant chart's config.
 */
+const bayesOutputDir = 'generative_bayes_model';
 const dashboardDataLocations = {
-  modeledFipsList: 'bayes-by-county/CountyCodeList.txt',
+  modeledFipsList: `${bayesOutputDir}/CountyCodeList.txt`,
   jhuGeojsonLatest: 'map_data/jhu_geojson_latest.json',
   jhuJsonByLevelLatest: 'map_data/jhu_json_by_level_latest.json',
   jhuJsonByTimeLatest: 'map_data/jhu_il_json_by_time_latest.json',
@@ -43,7 +43,7 @@ class Covid19Dashboard extends React.Component {
 
     // fetch all data in `dashboardDataLocations`
     Object.entries(dashboardDataLocations).forEach(
-      e => this.props.fetchDashboardData(e[0], e[1]),
+      (e) => this.props.fetchDashboardData(e[0], e[1]),
     );
   }
 
@@ -130,7 +130,7 @@ class Covid19Dashboard extends React.Component {
               yAxisId='left'
               type='number'
               domain={[0, Math.max(Object.values(locationPopupData.maxes)) || 'auto']}
-              tickFormatter={val => Number(val).toLocaleString()}
+              tickFormatter={(val) => Number(val).toLocaleString()}
               fontSize={10}
             />
             <YAxis
@@ -139,7 +139,7 @@ class Covid19Dashboard extends React.Component {
               orientation='right'
               type='number'
               domain={[0, Math.max(Object.values(locationPopupData.maxes)) || 'auto']}
-              tickFormatter={val => Number(val).toLocaleString()}
+              tickFormatter={(val) => Number(val).toLocaleString()}
               fontSize={10}
             />
             <Tooltip content={this.renderLocationPopupTooltip} />
@@ -183,9 +183,8 @@ class Covid19Dashboard extends React.Component {
     }
 
     const imgProps = {
-      imgCases: `bayes-by-county/${modeledCountyFips}/cases.png`,
-      imgDeaths: `bayes-by-county/${modeledCountyFips}/deaths.png`,
-      imgRt: `bayes-by-county/${modeledCountyFips}/Rt.png`,
+      imgCases: `${bayesOutputDir}/${modeledCountyFips}/cases.svg`,
+      imgRt: `${bayesOutputDir}/${modeledCountyFips}/rt.svg`,
     };
     const imgMetadata = covid19DashboardConfig.chartsConfig.simulations || {};
 
@@ -196,7 +195,7 @@ class Covid19Dashboard extends React.Component {
       },
     ];
     carouselChartsConfig = carouselChartsConfig.concat(
-      Object.keys(imgProps).map(propName => ({
+      Object.keys(imgProps).map((propName) => ({
         type: 'image',
         prop: propName,
         title: (imgMetadata[propName] && imgMetadata[propName].title) || null,
@@ -263,8 +262,6 @@ class Covid19Dashboard extends React.Component {
           <Tabs>
             <TabList className='covid19-dashboard_tablist'>
               <Tab>COVID-19 in Illinois</Tab>
-              {/* <Tab>COVID-19 in the world</Tab>
-              <Tab>Global SARS-CoV2 Genomics</Tab> */}
               <Tab>IL SARS-CoV2 Genomics</Tab>
             </TabList>
 
@@ -311,60 +308,6 @@ class Covid19Dashboard extends React.Component {
                   )}
               </div>
             </TabPanel>
-
-            {/* world tab */}
-            {/* <TabPanel className='covid19-dashboard_panel'>
-              <div className='covid19-dashboard_counts'>
-                <CountWidget
-                  label='Total Confirmed'
-                  value={confirmedCount.global}
-                />
-                <CountWidget
-                  label='Total Deaths'
-                  value={deathsCount.global}
-                />
-              </div>
-              <div className='covid19-dashboard_visualizations'>
-                { mapboxAPIToken
-                  && (
-                    <WorldMapChart
-                      geoJson={this.props.jhuGeojsonLatest}
-                      jsonByLevel={this.props.jhuJsonByLevelLatest}
-                      modeledFipsList={this.props.modeledFipsList}
-                      fetchTimeSeriesData={this.props.fetchTimeSeriesData}
-                    />
-                  )}
-                {chartsConfig.world && chartsConfig.world.length > 0
-                  && (
-                    <div className='covid19-dashboard_charts'>
-                      {chartsConfig.world.map((carouselConfig, i) => (
-                        <ChartCarousel
-                          key={i}
-                          chartsConfig={carouselConfig}
-                          {...this.props}
-                          enablePopupOnClick
-                        />
-                      ),
-                      )}
-                    </div>
-                  )}
-              </div>
-            </TabPanel>
-            <TabPanel className='covid19-dashboard_panel'>
-              <div className='covid19-dashboard_auspice'>
-                {/* this component doesn't need the mapboxAPIToken but it's a way to make
-                sure this is the COVID19 Commons and the iframe contents will load */}
-            {/* { mapboxAPIToken
-                  && (
-                    <iframe
-                      title='Global SARS-CoV2 Genomics'
-                      frameBorder='0'
-                      className='covid19-dashboard_auspice__iframe'
-                      src={auspiceUrl}
-                    />
-                  )}
-              </div>
-            </TabPanel> */}
             <TabPanel className='covid19-dashboard_panel'>
               <div className='covid19-dashboard_auspice'>
                 {/* this component doesn't need the mapboxAPIToken but it's a way to make
