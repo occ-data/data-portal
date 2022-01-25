@@ -13,8 +13,7 @@ import {
 } from '../localconf';
 import Popup from '../components/Popup';
 import Spinner from '../components/Spinner';
-import IllinoisMapChart from './IllinoisMapChart';
-import CountWidget from './CountWidget';
+import ChicagoMapChart from './ChicagoMapChart';
 import ChartCarousel from './ChartCarousel';
 import './Covid19Dashboard.less';
 
@@ -25,11 +24,9 @@ import './Covid19Dashboard.less';
 - add it to covid19DashboardConfig.chartsConfig in the relevant chart's config.
 */
 const bayesOutputDir = 'generative_bayes_model';
+const bayesByCounty = 'bayes-by-county';
 const dashboardDataLocations = {
-  modeledFipsList: `${bayesOutputDir}/CountyCodeList.txt`,
-  jhuGeojsonLatest: 'map_data/jhu_geojson_latest.json',
-  jhuJsonByLevelLatest: 'map_data/jhu_json_by_level_latest.json',
-  jhuJsonByTimeLatest: 'map_data/jhu_il_json_by_time_latest.json',
+  modeledFipsList: `${bayesByCounty}/CountyCodeList.txt`,
   vaccinesByCountyByDate: 'map_data/vaccines_by_county_by_date.json',
   top10ChartData: 'charts_data/top10.txt',
   idphDailyChartData: 'idph_daily.txt',
@@ -45,46 +42,6 @@ class Covid19Dashboard extends React.Component {
     Object.entries(dashboardDataLocations).forEach(
       (e) => this.props.fetchDashboardData(e[0], e[1]),
     );
-  }
-
-  getTotalCounts() {
-    // find latest date we have in the data
-    const confirmedCount = {
-      global: 0,
-      illinois: 0,
-    };
-    const deathsCount = {
-      global: 0,
-      illinois: 0,
-    };
-    const vaccinatedCount = {
-      illinois: 0,
-    };
-
-    if (this.props.vaccinesByCountyByDate.total) {
-      vaccinatedCount.illinois = this.props.vaccinesByCountyByDate.total;
-    }
-
-    this.props.jhuGeojsonLatest.features.forEach((feat) => {
-      const confirmed = +feat.properties.confirmed;
-      const deaths = +feat.properties.deaths;
-      if (confirmed) {
-        confirmedCount.global += confirmed;
-        if (feat.properties.province_state === 'Illinois') {
-          confirmedCount.illinois += confirmed;
-        }
-      }
-      if (deaths) {
-        deathsCount.global += deaths;
-        if (feat.properties.province_state === 'Illinois') {
-          deathsCount.illinois += deaths;
-        }
-      }
-    });
-
-    return {
-      confirmedCount, deathsCount, vaccinatedCount,
-    };
   }
 
   formatLocationTimeSeriesData = () => {
@@ -251,51 +208,30 @@ class Covid19Dashboard extends React.Component {
   render() {
     const chartsConfig = covid19DashboardConfig.chartsConfig || {};
 
-    const {
-      confirmedCount, deathsCount, vaccinatedCount,
-    } = this.getTotalCounts();
-
     return (
       <div className='covid19-dashboard'>
         {/* dashboard tabs */}
         <div>
           <Tabs>
             <TabList className='covid19-dashboard_tablist'>
-              <Tab>COVID-19 in Illinois</Tab>
+              <Tab>COVID-19 in Chicagoland</Tab>
               <Tab>IL SARS-CoV2 Genomics</Tab>
             </TabList>
 
-            {/* illinois tab */}
+            {/* chicago tab */}
             <TabPanel className='covid19-dashboard_panel'>
-              <div className='covid19-dashboard_counts'>
-                <CountWidget
-                  label='Total Confirmed'
-                  value={confirmedCount.illinois}
-                />
-                <CountWidget
-                  label='Total Deaths'
-                  value={deathsCount.illinois}
-                />
-                <CountWidget
-                  label='Total Vaccinated'
-                  value={vaccinatedCount.illinois}
-                />
-              </div>
               <div className='covid19-dashboard_visualizations'>
                 { mapboxAPIToken
                   && (
-                    <IllinoisMapChart
-                      jsonByLevel={this.props.jhuJsonByLevelLatest}
-                      jsonByTime={this.props.jhuJsonByTimeLatest}
-                      jsonVaccinated={this.props.vaccinesByCountyByDate}
+                    <ChicagoMapChart
                       modeledFipsList={this.props.modeledFipsList}
                       fetchTimeSeriesData={this.props.fetchTimeSeriesData}
                     />
                   )}
-                {chartsConfig.illinois && chartsConfig.illinois.length > 0
+                {chartsConfig.chicago && chartsConfig.chicago.length > 0
                   && (
                     <div className='covid19-dashboard_charts'>
-                      {chartsConfig.illinois.map((carouselConfig, i) => (
+                      {chartsConfig.chicago.map((carouselConfig, i) => (
                         <ChartCarousel
                           key={i}
                           chartsConfig={carouselConfig}
@@ -308,6 +244,7 @@ class Covid19Dashboard extends React.Component {
                   )}
               </div>
             </TabPanel>
+
             <TabPanel className='covid19-dashboard_panel'>
               <div className='covid19-dashboard_auspice'>
                 {/* this component doesn't need the mapboxAPIToken but it's a way to make
@@ -371,9 +308,6 @@ Covid19Dashboard.propTypes = {
   fetchDashboardData: PropTypes.func.isRequired,
   fetchTimeSeriesData: PropTypes.func.isRequired,
   modeledFipsList: PropTypes.array,
-  jhuGeojsonLatest: PropTypes.object,
-  jhuJsonByLevelLatest: PropTypes.object,
-  jhuJsonByTimeLatest: PropTypes.object,
   vaccinesByCountyByDate: PropTypes.object,
   selectedLocationData: PropTypes.object,
   closeLocationPopup: PropTypes.func.isRequired,
@@ -383,11 +317,6 @@ Covid19Dashboard.propTypes = {
 
 Covid19Dashboard.defaultProps = {
   modeledFipsList: [],
-  jhuGeojsonLatest: { type: 'FeatureCollection', features: [] },
-  jhuJsonByLevelLatest: {
-    country: {}, state: {}, county: {}, last_updated: '',
-  },
-  jhuJsonByTimeLatest: { il_county_list: {}, last_updated: '' },
   vaccinesByCountyByDate: { il_county_list: {}, last_updated: '', total: null },
   selectedLocationData: null,
   top10ChartData: [],
