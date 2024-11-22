@@ -77,7 +77,7 @@
     "react-table": "^6.9.2",
     "react-tabs": "^3.1.0",
     "react-virtualized": "^9.21.0",
-    "recharts": "^2.0.0",
+    "recharts": "^2.1.4",
     "redux": "^3.7.0",
     "redux-devtools": "^3.3.1",
     "redux-form": "^8.0.0",
