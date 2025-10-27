@@ -17,7 +17,7 @@ module.exports = {
     jest: true,
   },
   globals: {
-    JSX: true
+    JSX: true,
   },
   plugins: [
     'react',
@@ -25,7 +25,7 @@ module.exports = {
     'jsx-a11y',
     'import',
   ],
-  parser: 'babel-eslint',
+  parser: '@babel/eslint-parser',
   parserOptions: {
     sourceType: 'module',
     ecmaVersion: 6,
@@ -33,9 +33,25 @@ module.exports = {
       jsx: true,
       spread: true,
     },
+    requireConfigFile: false,
+    babelOptions: {
+      plugins: [
+        '@babel/plugin-proposal-class-properties',
+      ],
+    },
   },
   rules: {
     'no-underscore-dangle': 'off',
+    'import/no-extraneous-dependencies': [
+      'error',
+      {
+        'devDependencies': [
+          'src/stories/**',
+          '**/*.test.*',
+        ],
+        "peerDependencies": true
+      }
+    ],
     indent: [
       'error',
       2,

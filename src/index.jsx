@@ -4,11 +4,18 @@ import { Provider } from 'react-redux';
 import {
   BrowserRouter, Route, Switch, Redirect,
 } from 'react-router-dom';
+import { createBrowserHistory } from 'history';
+import {
+  createReactRouterV5Options,
+  getWebInstrumentations,
+  initializeFaro,
+  ReactIntegration,
+  FaroRoute,
+} from '@grafana/faro-react';
 import { ThemeProvider } from 'styled-components';
 import querystring from 'querystring';
 import { library } from '@fortawesome/fontawesome-svg-core';
-import { faAngleUp, faAngleDown } from '@fortawesome/free-solid-svg-icons';
-import ReactGA from 'react-ga';
+import { faAngleUp, faAngleDown, faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
 import { Helmet } from 'react-helmet';
 import { datadogRum } from '@datadog/browser-rum';
 
@@ -43,15 +50,16 @@ import getReduxStore from './reduxStore';
 import { ReduxNavBar, ReduxTopBar, ReduxFooter } from './Layout/reduxer';
 import ReduxQueryNode, { submitSearchForm } from './QueryNode/ReduxQueryNode';
 import {
-  basename, dev, gaDebug, workspaceUrl, workspaceErrorUrl,
+  basename, gaTrackingId, workspaceUrl, workspaceErrorUrl, Error403Url,
   indexPublic, explorerPublic, enableResourceBrowser, resourceBrowserPublic, enableDAPTracker,
-  discoveryConfig, commonsWideAltText, ddApplicationId, ddClientToken, ddEnv, ddSampleRate,
+  discoveryConfig, commonsWideAltText, ddApplicationId, ddClientToken, ddEnv, ddUrl, ddSampleRate, knownBotRegex,
+  userAccessToSite, grafanaFaroConfig, hostnameWithSubdomain,
 } from './localconf';
 import { portalVersion } from './versions';
 import Analysis from './Analysis/Analysis';
 import ReduxAnalysisApp from './Analysis/ReduxAnalysisApp';
-import { gaTracking, components } from './params';
-import GA, { RouteTracker } from './components/GoogleAnalytics';
+import { components } from './params';
+import { GAInit, GARouteTracker } from './components/GoogleAnalytics';
 import { DAPRouteTracker } from './components/DAPAnalytics';
 import GuppyDataExplorer from './GuppyDataExplorer';
 import isEnabled from './helpers/featureFlags';
@@ -65,6 +73,10 @@ import ReduxWorkspaceShutdownBanner from './Popup/ReduxWorkspaceShutdownBanner';
 import ErrorWorkspacePlaceholder from './Workspace/ErrorWorkspacePlaceholder';
 import { ReduxStudyViewer, ReduxSingleStudyViewer } from './StudyViewer/reduxer';
 import NotFound from './components/NotFound';
+import AccessDenied from './components/AccessDenied';
+import ErrorPage403 from './components/ErrorPage403';
+import ReduxGenericAccessRequestForm from './GenericAccessRequestForm/ReduxGenericAccessRequestForm';
+import ReduxAuthTimeoutPopup from './Popup/ReduxAuthTimeoutPopup';
 
 // monitor user's session
 sessionMonitor.start();
@@ -74,26 +86,58 @@ workspaceSessionMonitor.start();
 async function init() {
   const store = await getReduxStore();
 
-  ReactGA.initialize(gaTracking);
-  ReactGA.pageview(window.location.pathname + window.location.search);
-
   // Datadog setup
   if (ddApplicationId && !ddClientToken) {
+    // eslint-disable-next-line no-console
     console.warn('Datadog applicationId is set, but clientToken is missing');
   } else if (!ddApplicationId && ddClientToken) {
+    // eslint-disable-next-line no-console
     console.warn('Datadog clientToken is set, but applicationId is missing');
   } else if (ddApplicationId && ddClientToken) {
+    const conditionalSampleRate = knownBotRegex.test(navigator.userAgent) ? 0 : ddSampleRate;
     datadogRum.init({
       applicationId: ddApplicationId,
       clientToken: ddClientToken,
-      site: 'datadoghq.com',
+      site: ddUrl,
       service: 'portal',
       env: ddEnv,
       version: portalVersion,
-      sampleRate: ddSampleRate,
+      sampleRate: conditionalSampleRate,
       trackInteractions: true,
     });
   }
+
+  // setup Grafana Faro
+  const history = createBrowserHistory();
+  // to filter bots from RUM, see https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/instrument/filter-bots/#filter-bots-by-user-agent
+  let conditionalSampleRate = knownBotRegex.test(navigator.userAgent) ? 0 : grafanaFaroConfig.grafanaFaroSampleRate;
+  if (!grafanaFaroConfig.grafanaFaroEnable) {
+    conditionalSampleRate = 0;
+  }
+  initializeFaro({
+    url: grafanaFaroConfig.grafanaFaroUrl,
+    app: {
+      name: 'portal',
+      version: portalVersion,
+      namespace: grafanaFaroConfig.grafanaFaroNamespace,
+      environment: hostnameWithSubdomain,
+    },
+    instrumentations: [
+      ...getWebInstrumentations(),
+      new ReactIntegration({
+        router: createReactRouterV5Options({
+          history,
+          Route,
+        }),
+      }),
+    ],
+    sessionTracking: {
+      enabled: true,
+      persistent: true,
+      samplingRate: conditionalSampleRate,
+    },
+    ignoreUrls: ['https://*.logs.datadoghq.com', 'https://*.browser-intake-ddog-gov.com', 'https://www.google-analytics.com', 'https://*.analytics.google.com', 'https://analytics.google.com', 'https://*.g.doubleclick.net'],
+  });
 
   await Promise.all(
     [
@@ -109,7 +153,7 @@ async function init() {
     ],
   );
   // FontAwesome icons
-  library.add(faAngleUp, faAngleDown);
+  library.add(faAngleUp, faAngleDown, faExternalLinkAlt);
 
   // For any platform-wide branded logos (Gen3, CTDS logos), apply standardized
   // alt text. For the commons-specific logo, use the appName attribute to apply
@@ -126,7 +170,7 @@ async function init() {
         <ThemeProvider theme={theme}>
           <BrowserRouter basename={basename}>
             <div>
-              {GA.init(gaTracking, dev, gaDebug) && <RouteTracker />}
+              {(GAInit(gaTrackingId)) && <GARouteTracker />}
               {enableDAPTracker && <DAPRouteTracker />}
               {isEnabled('noIndex')
                 ? (
@@ -135,16 +179,18 @@ async function init() {
                   </Helmet>
                 )
                 : null}
-              <ReduxTopBar />
-              <ReduxNavBar />
-              <div className='main-content'>
+              <header>
+                <ReduxTopBar />
+                <ReduxNavBar />
+              </header>
+              <div className='main-content' id='main-content'>
                 <ReduxWorkspaceShutdownBanner />
                 <ReduxWorkspaceShutdownPopup />
                 <Switch>
                   {/* process with trailing and duplicate slashes first */}
                   {/* see https://github.com/ReactTraining/react-router/issues/4841#issuecomment-523625186 */}
                   {/* Removes trailing slashes */}
-                  <Route
+                  <FaroRoute
                     path='/:url*(/+)'
                     exact
                     strict
@@ -153,7 +199,7 @@ async function init() {
                     )}
                   />
                   {/* Removes duplicate slashes in the middle of the URL */}
-                  <Route
+                  <FaroRoute
                     path='/:url(.*//+.*)'
                     exact
                     strict
@@ -161,7 +207,7 @@ async function init() {
                       <Redirect to={`/${match.params.url.replace(/\/\/+/, '/')}`} />
                     )}
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/login'
                     component={
@@ -177,7 +223,7 @@ async function init() {
                       )
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/'
                     component={
@@ -190,35 +236,35 @@ async function init() {
                       )
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/submission'
                     component={
                       (props) => <ProtectedContent component={HomePage} {...props} />
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/submission/files'
                     component={
                       (props) => <ProtectedContent component={ReduxMapFiles} {...props} />
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/submission/map'
                     component={
                       (props) => <ProtectedContent component={ReduxMapDataModel} {...props} />
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/document'
                     component={
                       (props) => <ProtectedContent component={DocumentPage} {...props} />
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/query'
                     component={
@@ -228,7 +274,7 @@ async function init() {
                   {
                     isEnabled('analysis')
                       ? (
-                        <Route
+                        <FaroRoute
                           exact
                           path='/analysis/:app'
                           component={
@@ -241,7 +287,7 @@ async function init() {
                   {
                     isEnabled('analysis')
                       ? (
-                        <Route
+                        <FaroRoute
                           exact
                           path='/analysis'
                           component={
@@ -251,7 +297,7 @@ async function init() {
                       )
                       : null
                   }
-                  <Route
+                  <FaroRoute
                     exact
                     path='/identity'
                     component={
@@ -264,7 +310,7 @@ async function init() {
                       )
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/indexing'
                     component={
@@ -276,7 +322,7 @@ async function init() {
                       )
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/quiz'
                     component={
@@ -288,7 +334,7 @@ async function init() {
                       )
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/dd/:node'
                     component={
@@ -301,7 +347,7 @@ async function init() {
                       )
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/dd'
                     component={
@@ -314,7 +360,7 @@ async function init() {
                       )
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/files/*'
                     component={
@@ -327,7 +373,7 @@ async function init() {
                       )
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/files'
                     component={
@@ -340,24 +386,42 @@ async function init() {
                       )
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/workspace'
                     component={
                       (props) => <ProtectedContent component={Workspace} {...props} />
                     }
                   />
-                  <Route
+                  {
+                    isEnabled('workspaceRegistration')
+                      ? (
+                        <FaroRoute
+                          exact
+                          path='/workspace/request-access'
+                          component={
+                            (props) => (
+                              <ProtectedContent
+                                component={ReduxGenericAccessRequestForm}
+                                {...props}
+                              />
+                            )
+                          }
+                        />
+                      )
+                      : null
+                  }
+                  <FaroRoute
                     exact
                     path={workspaceUrl}
                     component={ErrorWorkspacePlaceholder}
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path={workspaceErrorUrl}
                     component={ErrorWorkspacePlaceholder}
                   />
-                  <Route
+                  <FaroRoute
                     path='/:project/search'
                     component={
                       (props) => {
@@ -387,7 +451,7 @@ async function init() {
                   />
                   {isEnabled('explorer')
                     ? (
-                      <Route
+                      <FaroRoute
                         exact
                         path='/explorer'
                         component={
@@ -405,7 +469,7 @@ async function init() {
                   {components.privacyPolicy
                     && (!!components.privacyPolicy.file || !!components.privacyPolicy.routeHref)
                     ? (
-                      <Route
+                      <FaroRoute
                         exact
                         path='/privacy-policy'
                         component={ReduxPrivacyPolicy}
@@ -414,7 +478,7 @@ async function init() {
                     : null}
                   {enableResourceBrowser
                     ? (
-                      <Route
+                      <FaroRoute
                         exact
                         path='/resource-browser'
                         component={
@@ -429,7 +493,7 @@ async function init() {
                       />
                     )
                     : null}
-                  <Route
+                  <FaroRoute
                     exact
                     path='/study-viewer/:dataType'
                     component={
@@ -442,7 +506,7 @@ async function init() {
                       )
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/study-viewer/:dataType/:rowAccessor'
                     component={
@@ -457,7 +521,7 @@ async function init() {
                   />
                   {isEnabled('discovery')
                     && (
-                      <Route
+                      <FaroRoute
                         exact
                         path='/discovery'
                         component={
@@ -472,13 +536,13 @@ async function init() {
                       />
                     )}
                   {isEnabled('discovery') && (
-                    <Route
+                    <FaroRoute
                       exact
-                      path='/discovery/:studyUID'
+                      path='/discovery/:studyUID*'
                       component={
                         (props) => (
                           <ProtectedContent
-                            public
+                            public={discoveryConfig.public !== false}
                             component={Discovery}
                             {...props}
                           />
@@ -486,11 +550,21 @@ async function init() {
                       }
                     />
                   )}
-                  <Route
+                  <FaroRoute
                     path='/not-found'
                     component={NotFound}
                   />
-                  <Route
+                  {userAccessToSite?.enabled && (
+                    <FaroRoute
+                      path={userAccessToSite.deniedPageURL || '/access-denied'}
+                      component={AccessDenied}
+                    />
+                  )}
+                  <FaroRoute
+                    path={Error403Url}
+                    component={ErrorPage403}
+                  />
+                  <FaroRoute
                     exact
                     path='/:project'
                     component={
@@ -502,7 +576,7 @@ async function init() {
                       )
                     }
                   />
-                  <Route
+                  <FaroRoute
                     path='*'
                     component={NotFound}
                   />
@@ -513,6 +587,7 @@ async function init() {
                 privacyPolicy={components.privacyPolicy}
               />
             </div>
+            <ReduxAuthTimeoutPopup />
           </BrowserRouter>
         </ThemeProvider>
       </Provider>

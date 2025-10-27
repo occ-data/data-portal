@@ -5,8 +5,8 @@
       "manifestFieldName": "__manifest",
       "enableDownloadManifest": true,
       "documentationLinks": {
-        "gen3Client": "https://gen3.org/resources/user/gen3-client/",
-        "gen3Workspaces": "https://gen3.org/resources/user/analyze-data/"
+        "gen3Client": "https://docs.gen3.org/gen3-resources/user-guide/access-data/#download-files-using-the-gen3-client",
+        "gen3Workspaces": "https://docs.gen3.org/gen3-resources/user-guide/analyze-data/"
       }
     },
     "pageTitle": {
@@ -19,7 +19,26 @@
       }
     },
     "authorization": {
-      "enabled": false
+      "enabled": true,
+      "columnTooltip": "Filter by data access",
+      "supportedValues": {
+        "accessible": {
+          "enabled": true,
+          "menuText": "Available"
+        },
+        "unaccessible": {
+          "enabled": false,
+          "menuText": "Not Accessible"
+        },
+        "waiting": {
+          "enabled": true,
+          "menuText": "Waiting"
+        },
+        "notAvailable": {
+          "enabled": true,
+          "menuText": "Not Available"
+        }
+      }
     }
   },
   "aggregations": [
@@ -77,6 +96,9 @@
   "studyPageFields": {
     "header": {
       "field": "name"
+    },
+    "subHeader": {
+      "field": "study_id"
     },
     "fieldsToShow": [
       {

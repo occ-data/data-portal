@@ -21,8 +21,9 @@ const initStoreData = {
     accessFilters: {
       [AccessLevel.ACCESSIBLE]: true,
       [AccessLevel.UNACCESSIBLE]: true,
-      [AccessLevel.PENDING]: true,
+      [AccessLevel.WAITING]: true,
       [AccessLevel.NOT_AVAILABLE]: true,
+      [AccessLevel.MIXED]: true,
     },
     selectedTags: {},
     pagination: {
@@ -41,6 +42,7 @@ const getDiscoveryComponent = (store, config: DiscoveryConfig, params = {}) => (
       <Discovery
         config={config}
         studies={testStudies}
+        allBatchesAreReady
         {...store.getState().discovery}
         params={params}
         onSearchChange={(searchTerm) => store.dispatch({ type: 'SEARCH_TERM_SET', searchTerm })}
@@ -115,7 +117,7 @@ describe('Configuration', () => {
       // access info in modal should be present/hidden
       // Open modal to a study by clicking on the first row
       wrapper.find('.discovery-table__row').first().simulate('click');
-      expect(wrapper.exists('.discovery-modal__access-alert')).toBe(enabled);
+      expect(wrapper.exists('.discovery-modal__access-alert')).toBe(true);
 
       wrapper.unmount();
     });
@@ -123,30 +125,17 @@ describe('Configuration', () => {
 });
 
 describe('Modal', () => {
-  test('Modal header field is enabled/disabled', () => {
-    const modalDataIndex = 2;
-    [true, false].forEach((enabled) => {
-      testConfig.studyPageFields.header = enabled
-        ? { field: testConfig.minimalFieldMapping.uid }
-        : undefined;
-      const wrapper = mount(getDiscoveryComponent(mockStore(initStoreData), testConfig));
-      wrapper.find('.discovery-table__row').at(modalDataIndex).simulate('click');
-      const modal = wrapper.find('.discovery-modal').first();
-      expect(modal.exists('.discovery-modal__header-text')).toBe(enabled);
-
-      wrapper.unmount();
-    });
-  });
-
   test('Modal header field shows configured field', () => {
     const modalDataIndex = 2;
     const headerField = testConfig.minimalFieldMapping.uid;
     testConfig.studyPageFields.header = { field: headerField };
+    const subHeaderField = testConfig.studyPageFields.subHeader?.field;
     const wrapper = mount(getDiscoveryComponent(mockStore(initStoreData), testConfig));
     wrapper.find('.discovery-table__row').at(modalDataIndex).simulate('click');
     const modal = wrapper.find('.discovery-modal').first();
     const modalData = testStudies[modalDataIndex];
     expect(modal.find('.discovery-modal__header-text').first().text()).toBe(modalData[headerField]);
+    expect(modal.find('.discovery-modal__subheader-text').first().text()).toBe(modalData[subHeaderField]);
 
     wrapper.unmount();
   });
@@ -263,7 +252,8 @@ describe('Table', () => {
 
     const isSelectedTag = (n) => n.hasClass('discovery-tag--selected');
     tag = wrapper.findWhere(isSelectedTag).first();
-    expect(store.getActions()).toHaveLength(0);
+    // expect search to reset onload
+    expect(store.getActions()).toStrictEqual([{ searchTerm: undefined, type: 'SEARCH_TERM_SET' }]);
     tag.simulate('click');
 
     const expectedTagClearedAction = { type: 'TAGS_SELECTED', selectedTags: { [targetTagValue]: undefined } };

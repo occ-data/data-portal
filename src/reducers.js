@@ -12,7 +12,7 @@ import queryNodes from './QueryNode/reducers';
 import popups from './Popup/reducers';
 import graphiql from './GraphQLEditor/reducers';
 import login from './Login/reducers';
-import bar from './Layout/reducers';
+import { bar, banner } from './Layout/reducers';
 import ddgraph from './DataDictionary/reducers';
 import privacyPolicy from './PrivacyPolicy/reducers';
 import study from './StudyViewer/reducers';
@@ -79,6 +79,15 @@ const userAuthMapping = (state = {}, action) => {
   }
 };
 
+const userAggregateAuthMappings = (state = {}, action) => {
+  switch (action.type) {
+  case 'RECEIVE_AGGREGATE_USER_AUTH_MAPPINGS':
+    return { ...state, ...action.data };
+  default:
+    return state;
+  }
+};
+
 export const removeDeletedNode = (state, id) => {
   const searchResult = state.search_result;
   const nodeType = Object.keys(searchResult.data)[0];
@@ -91,6 +100,7 @@ const reducers = combineReducers({
   study,
   privacyPolicy,
   bar,
+  banner,
   homepage,
   index,
   popups,
@@ -110,6 +120,7 @@ const reducers = combineReducers({
   ddgraph,
   userAccess,
   userAuthMapping,
+  userAggregateAuthMappings,
   discovery,
 });
 

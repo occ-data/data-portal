@@ -2,12 +2,10 @@ import { fetchWithCreds } from '../actions';
 import { asyncSetInterval } from '../utils';
 import { userAPIPath, jobAPIPath } from '../localconf';
 
-export const getPresignedUrl = (did, method) => {
+export const getPresignedUrl = async (did, method) => {
   const urlPath = `${userAPIPath}data/${method}/${did}`;
-  return fetchWithCreds({ path: urlPath, method: 'GET' },
-  ).then(
-    ({ data }) => data.url,
-  );
+  const { data } = await fetchWithCreds({ path: urlPath, method: 'GET' });
+  return data.url;
 };
 
 export const dispatchJob = (body) => (dispatch) => fetchWithCreds({
@@ -40,6 +38,15 @@ export const checkJobStatus = (dispatch, getState) => {
   let jobId = null;
   if (state.analysis.job) {
     jobId = state.analysis.job.uid;
+  }
+  // If jobId is null or undefined, clear the interval and exit
+  if (!jobId) {
+    clearInterval(state.analysis.jobStatusInterval);
+    dispatch({
+      type: 'FETCH_ERROR',
+      error: 'Job ID not found',
+    });
+    return Promise.resolve();
   }
   return fetchWithCreds({
     path: `${jobAPIPath}status?UID=${jobId}`,

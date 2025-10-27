@@ -4,12 +4,13 @@ import {
   Select, Row, Col, Tag,
 } from 'antd';
 import { DiscoveryConfig } from './DiscoveryConfig';
+import { DiscoveryResource } from './Discovery';
 
 const { Option } = Select;
 
 interface DiscoveryTagViewerProps {
   config: DiscoveryConfig
-  studies?: {__accessible: boolean, [any: string]: any}[]
+  studies?: DiscoveryResource[]
   selectedTags: any
   setSelectedTags: any
 }
@@ -24,11 +25,13 @@ const DiscoveryDropdownTagViewer: React.FunctionComponent<DiscoveryTagViewerProp
     const tagMap = {};
     studies.forEach((study) => {
       const tagField = props.config.minimalFieldMapping.tagsListFieldName;
-      study[tagField].forEach((tag) => {
-        if (tag.category === category.name) {
-          tagMap[tag.name] = 1;
-        }
-      });
+      if (study[tagField]) {
+        study[tagField].forEach((tag) => {
+          if (tag.category === category.name) {
+            tagMap[tag.name] = 1;
+          }
+        });
+      }
     });
     const tagArray = Object.keys(tagMap).sort((a, b) => a.localeCompare(b));
     // get selected tags which value is not 'undefined'
@@ -60,6 +63,9 @@ const DiscoveryDropdownTagViewer: React.FunctionComponent<DiscoveryTagViewerProp
             ...props.selectedTags,
             [tag]: props.selectedTags[tag] ? undefined : true,
           });
+        }}
+        onClear={() => {
+          props.setSelectedTags({});
         }}
       >
         { tagArray.map((tag) => (

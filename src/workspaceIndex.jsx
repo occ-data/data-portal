@@ -10,10 +10,17 @@ import { Provider } from 'react-redux';
 import {
   BrowserRouter, Route, Switch, Redirect,
 } from 'react-router-dom';
+import { createBrowserHistory } from 'history';
+import {
+  createReactRouterV5Options,
+  getWebInstrumentations,
+  initializeFaro,
+  ReactIntegration,
+  FaroRoute,
+} from '@grafana/faro-react';
 import { ThemeProvider } from 'styled-components';
 import { library } from '@fortawesome/fontawesome-svg-core';
-import { faAngleUp, faAngleDown } from '@fortawesome/free-solid-svg-icons';
-import ReactGA from 'react-ga';
+import { faAngleUp, faAngleDown, faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
 import { Helmet } from 'react-helmet';
 import { datadogRum } from '@datadog/browser-rum';
 
@@ -28,12 +35,13 @@ import getReduxStore from './reduxStore';
 import ReduxLogin, { fetchLogin } from './Login/ReduxLogin';
 import { ReduxNavBar, ReduxTopBar, ReduxFooter } from './Layout/reduxer';
 import {
-  basename, dev, gaDebug, workspaceUrl, workspaceErrorUrl, enableDAPTracker,
-  ddApplicationId, ddClientToken, ddEnv, ddSampleRate,
+  basename, gaTrackingId, workspaceUrl, workspaceErrorUrl, enableDAPTracker,
+  ddApplicationId, ddClientToken, ddEnv, ddUrl, ddSampleRate, knownBotRegex,
+  grafanaFaroConfig, hostnameWithSubdomain,
 } from './localconf';
 import { portalVersion } from './versions';
-import { gaTracking, components } from './params';
-import GA, { RouteTracker } from './components/GoogleAnalytics';
+import { components } from './params';
+import { GAInit, GARouteTracker } from './components/GoogleAnalytics';
 import { DAPRouteTracker } from './components/DAPAnalytics';
 import isEnabled from './helpers/featureFlags';
 import sessionMonitor from './SessionMonitor';
@@ -42,6 +50,7 @@ import Workspace from './Workspace';
 import ReduxWorkspaceShutdownPopup from './Popup/ReduxWorkspaceShutdownPopup';
 import ReduxWorkspaceShutdownBanner from './Popup/ReduxWorkspaceShutdownBanner';
 import ErrorWorkspacePlaceholder from './Workspace/ErrorWorkspacePlaceholder';
+import ReduxAuthTimeoutPopup from './Popup/ReduxAuthTimeoutPopup';
 
 // monitor user's session
 sessionMonitor.start();
@@ -51,29 +60,61 @@ workspaceSessionMonitor.start();
 async function init() {
   const store = await getReduxStore();
 
-  ReactGA.initialize(gaTracking);
-  ReactGA.pageview(window.location.pathname + window.location.search);
-
   // Datadog setup
   if (ddApplicationId && !ddClientToken) {
+    // eslint-disable-next-line no-console
     console.warn('Datadog applicationId is set, but clientToken is missing');
   } else if (!ddApplicationId && ddClientToken) {
+    // eslint-disable-next-line no-console
     console.warn('Datadog clientToken is set, but applicationId is missing');
   } else if (ddApplicationId && ddClientToken) {
+    const conditionalSampleRate = knownBotRegex.test(navigator.userAgent) ? 0 : ddSampleRate;
     datadogRum.init({
       applicationId: ddApplicationId,
       clientToken: ddClientToken,
-      site: 'datadoghq.com',
+      site: ddUrl,
       service: 'portal',
       env: ddEnv,
       version: portalVersion,
-      sampleRate: ddSampleRate,
+      sampleRate: conditionalSampleRate,
       trackInteractions: true,
     });
   }
 
+  // setup Grafana Faro
+  const history = createBrowserHistory();
+  // to filter bots from RUM, see https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/instrument/filter-bots/#filter-bots-by-user-agent
+  let conditionalSampleRate = knownBotRegex.test(navigator.userAgent) ? 0 : grafanaFaroConfig.grafanaFaroSampleRate;
+  if (!grafanaFaroConfig.grafanaFaroEnable) {
+    conditionalSampleRate = 0;
+  }
+  initializeFaro({
+    url: grafanaFaroConfig.grafanaFaroUrl,
+    app: {
+      name: 'portal',
+      version: portalVersion,
+      namespace: grafanaFaroConfig.grafanaFaroNamespace,
+      environment: hostnameWithSubdomain,
+    },
+    instrumentations: [
+      ...getWebInstrumentations(),
+      new ReactIntegration({
+        router: createReactRouterV5Options({
+          history,
+          Route,
+        }),
+      }),
+    ],
+    sessionTracking: {
+      enabled: true,
+      persistent: true,
+      samplingRate: conditionalSampleRate,
+    },
+    ignoreUrls: ['https://*.logs.datadoghq.com', 'https://*.browser-intake-ddog-gov.com', 'https://www.google-analytics.com', 'https://*.analytics.google.com', 'https://analytics.google.com', 'https://*.g.doubleclick.net'],
+  });
+
   // FontAwesome icons
-  library.add(faAngleUp, faAngleDown);
+  library.add(faAngleUp, faAngleDown, faExternalLinkAlt);
 
   await Promise.all(
     [
@@ -92,7 +133,7 @@ async function init() {
         <ThemeProvider theme={theme}>
           <BrowserRouter basename={basename}>
             <div>
-              {GA.init(gaTracking, dev, gaDebug) && <RouteTracker />}
+              {(GAInit(gaTrackingId)) && <GARouteTracker />}
               {enableDAPTracker && <DAPRouteTracker />}
               {isEnabled('noIndex')
                 ? (
@@ -101,16 +142,18 @@ async function init() {
                   </Helmet>
                 )
                 : null}
-              <ReduxTopBar />
-              <ReduxNavBar />
-              <div className='main-content'>
+              <header>
+                <ReduxTopBar />
+                <ReduxNavBar />
+              </header>
+              <div className='main-content' id='main-content'>
                 <ReduxWorkspaceShutdownBanner />
                 <ReduxWorkspaceShutdownPopup />
                 <Switch>
                   {/* process with trailing and duplicate slashes first */}
                   {/* see https://github.com/ReactTraining/react-router/issues/4841#issuecomment-523625186 */}
                   {/* Removes trailing slashes */}
-                  <Route
+                  <FaroRoute
                     path='/:url*(/+)'
                     exact
                     strict
@@ -119,7 +162,7 @@ async function init() {
                     )}
                   />
                   {/* Removes duplicate slashes in the middle of the URL */}
-                  <Route
+                  <FaroRoute
                     path='/:url(.*//+.*)'
                     exact
                     strict
@@ -127,7 +170,7 @@ async function init() {
                       <Redirect to={`/${match.params.url.replace(/\/\/+/, '/')}`} />
                     )}
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/login'
                     component={
@@ -143,7 +186,7 @@ async function init() {
                       )
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/identity'
                     component={
@@ -156,24 +199,24 @@ async function init() {
                       )
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path='/workspace'
                     component={
                       (props) => <ProtectedContent component={Workspace} {...props} />
                     }
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path={workspaceUrl}
                     component={ErrorWorkspacePlaceholder}
                   />
-                  <Route
+                  <FaroRoute
                     exact
                     path={workspaceErrorUrl}
                     component={ErrorWorkspacePlaceholder}
                   />
-                  <Route
+                  <FaroRoute
                     path='*'
                     render={
                       () => (
@@ -188,6 +231,7 @@ async function init() {
                 privacyPolicy={components.privacyPolicy}
               />
             </div>
+            <ReduxAuthTimeoutPopup />
           </BrowserRouter>
         </ThemeProvider>
       </Provider>

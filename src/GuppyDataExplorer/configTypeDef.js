@@ -13,6 +13,7 @@ export const GuppyConfigType = PropTypes.shape({
     resourceIdField: PropTypes.string,
     referenceIdFieldInResourceIndex: PropTypes.string,
     referenceIdFieldInDataIndex: PropTypes.string,
+    useFilterForCounts: PropTypes.bool,
   }),
   accessibleFieldCheckList: PropTypes.arrayOf(PropTypes.string),
   accessibleValidationField: PropTypes.string,
@@ -22,6 +23,10 @@ export const FilterConfigType = PropTypes.shape({
   tabs: PropTypes.arrayOf(PropTypes.shape({
     title: PropTypes.string,
     fields: PropTypes.arrayOf(PropTypes.string),
+    defaultFilters: PropTypes.arrayOf(PropTypes.shape({
+      field: PropTypes.string,
+      values: PropTypes.arrayOf(PropTypes.string),
+    })),
   })),
 });
 

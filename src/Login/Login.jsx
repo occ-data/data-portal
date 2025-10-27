@@ -3,12 +3,46 @@ import querystring from 'querystring';
 import PropTypes from 'prop-types'; // see https://github.com/facebook/prop-types#prop-types
 import Select, { createFilter } from 'react-select';
 import Button from '@gen3/ui-component/dist/components/Button';
-import { basename } from '../localconf';
+import { basename, forceSingleLoginDropdownOptions } from '../localconf';
 import { components } from '../params';
 
 import './Login.less';
 
 const getInitialState = (height) => ({ height });
+
+const determineIfEntryLoginSelectShown = (name, loginOptionsLength) => ((forceSingleLoginDropdownOptions
+    && forceSingleLoginDropdownOptions.includes(name))
+  || loginOptionsLength > 1);
+
+// Get a url for a given "location" (location object should have at least the .from attribute)
+export const getUrlForRedirectLocation = (location) => {
+  // compose next according to location.from
+  let next = (location.from) ? `${basename}${location.from}` : basename;
+  if (location.state && location.state.from) {
+    next = `${basename}${location.state.from}`;
+  }
+  // clean up url: no double slashes
+  next = next.replace(/\/+/g, '/');
+  const queryParams = querystring.parse(location.search ? location.search.replace(/^\?+/, '') : '');
+  if (queryParams.next) {
+    next = basename === '/' ? queryParams.next : basename + queryParams.next;
+  }
+  const regexp = /^\/.*/gi;
+  const isValidRedirect = new RegExp(regexp).test(next);
+  if (!isValidRedirect) {
+    console.log(`Found illegal "next" parameter value ${next}`);
+    return basename;
+  }
+  next = next.replace('?request_access', '?request_access_logged_in');
+
+  const fixDuplicateBasename = (nextVal) => {
+    const pattern = basename + basename;
+    const fixedNextVal = nextVal.replace(pattern, basename);
+    return fixedNextVal;
+  };
+  next = fixDuplicateBasename(next);
+  return `${next}`;
+};
 
 const getLoginUrl = (providerLoginUrl, next) => {
   const queryChar = providerLoginUrl.includes('?') ? '&' : '?';
@@ -50,18 +84,7 @@ class Login extends React.Component {
 
   render() {
     const { location } = this.props; // this is the react-router "location"
-    // compose next according to location.from
-    let next = (location.from) ? `${basename}${location.from}` : basename;
-    if (location.state && location.state.from) {
-      next = `${basename}${location.state.from}`;
-    }
-    // clean up url: no double slashes
-    next = next.replace(/\/+/g, '/');
-    const queryParams = querystring.parse(location.search ? location.search.replace(/^\?+/, '') : '');
-    if (queryParams.next) {
-      next = basename === '/' ? queryParams.next : basename + queryParams.next;
-    }
-
+    const next = getUrlForRedirectLocation(location);
     let customImage = 'gene';
     let displaySideBoxImages = true;
     if (components.login && components.login.image !== undefined) {
@@ -72,7 +95,21 @@ class Login extends React.Component {
       }
     }
     const customImageStyle = { backgroundImage: `url(/src/img/icons/${customImage}.svg)` };
-    next = next.replace('?request_access', '?request_access_logged_in');
+
+    const getLocationForText = (location) => {
+      let next = location.from;
+      if (location.state && location.state.from) {
+        next = location.state.from;
+      }
+      if (!next || next === '/') {
+        return undefined;
+      }
+      // Lookup next to get actuale page name, if item is not in main navigation display default messaging
+      const nextItem = components.navigation.items.filter((item) => item.link === next)[0];
+
+      return nextItem ? nextItem.name : 'Restricted';
+    };
+    const fromLocationText = getLocationForText(location);
 
     let loginComponent = (
       <React.Fragment key='login-component'>
@@ -128,7 +165,7 @@ class Login extends React.Component {
           <React.Fragment key={i}>
             <div className='login-page__entries'>
               {p.desc}
-              <div className='login-page__entry-login'>
+              <div className={'login-page__entry-login ' + p.name.replaceAll(" ", "-")}>
                 {
                   // If there are multiple URLs, display a dropdown next to
                   // the login button We use createFilter here with
@@ -139,7 +176,7 @@ class Login extends React.Component {
                   // over the login options' names (e.g. "The University of
                   // Chicago") and not the actual option values, which are
                   // URLs.
-                  loginOptions[i].length > 1 && (
+                  determineIfEntryLoginSelectShown(p.name, loginOptions[i].length) && (
                     <Select
                       isClearable
                       isSearchable
@@ -179,14 +216,23 @@ class Login extends React.Component {
             : null
         }
         <div className='login-page__central-content'>
-          <div className='h1-typo login-page__title'>
+          <h1 className='h1-typo login-page__title'>
             {this.props.data.title}
-          </div>
-          <div className='high-light login-page__sub-title'>
-            {this.props.data.subTitle}
-          </div>
-          <hr className='login-page__separator' />
-          <div className='body-typo'>{this.props.data.text}</div>
+          </h1>
+          {fromLocationText ? (
+            <React.Fragment><div className='high-light login-page__sub-title'>
+              Access {fromLocationText}
+            </div>
+            <div className='body-typo'>The {fromLocationText === 'Restricted' ? 'page' : fromLocationText} requires access. Please login using one of the options below to continue.</div>
+            </React.Fragment>
+          ) : (
+            <React.Fragment><div className='high-light login-page__sub-title'>
+              {this.props.data.subTitle}
+                            </div>
+            <hr className='login-page__separator' />
+            <div className='body-typo'>{this.props.data.text}</div>
+            </React.Fragment>
+          )}
           {loginComponent}
           <div>
             {this.props.data.contact}

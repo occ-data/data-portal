@@ -12,13 +12,16 @@ class Popup extends React.Component {
     // maintaining an accessible tab order (508 compliance)
     // Code inspired by: https://robinvdvleuten.nl/blog/trap-focus-in-a-react-component/
     const modal = document.getElementById('popup');
+    const html = document.getElementsByTagName('html')[0];
 
     this.focusTrap = createFocusTrap('#popup', {
       onActivate() {
         modal.classList.add('trap-is-active');
+        html.classList.add('lock-scroll');
       },
       onDeactivate() {
         modal.classList.remove('trap-is-active');
+        html.classList.remove('lock-scroll');
       },
     });
 
@@ -31,7 +34,7 @@ class Popup extends React.Component {
 
   render() {
     return (
-      <div className='popup__mask' aria-modal='true' id='popup'>
+      <div className='popup__mask' aria-modal='true' id='popup' role='alertdialog' aria-labelledby='popup__title' aria-describedby='popup__message'>
         <div className='popup__box'>
           <div className='popup__title'>
             <div className='popup__icon'>
@@ -45,7 +48,7 @@ class Popup extends React.Component {
                   />
                 )
               }
-              <div className='h2-typo popup__title-text'>{this.props.title}</div>
+              <div className='h2-typo popup__title-text' id='popup__title'>{this.props.title}</div>
             </div>
             {
               this.props.onClose
@@ -60,7 +63,7 @@ class Popup extends React.Component {
               )
             }
           </div>
-          <div className='popup__message'>
+          <div className='popup__message' id='popup__message'>
             { this.props.message && <div className='high-light'>{this.props.message.map((text, i) => <p key={i}>{text}</p>)}</div> }
             {
               this.props.lines.length > 0

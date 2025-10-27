@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import Tooltip from 'rc-tooltip';
 
 const tooltipText = 'These accessibility links assist with keyboard navigation of the site. Selecting a link will bring tab focus to the specified page content.';
@@ -23,8 +23,8 @@ const viewLinkedElement = (elementId) => {
   });
 };
 
-const DiscoveryAccessibilityLinks = () => (
-  <div className='g3-accessibility-links' id='discovery-page-accessibility-links'>
+const DiscoveryAccessibilityLinks = forwardRef((props, ref) => (
+  <div className='discovery-page-accessibility-links' ref={ref}>
     <Tooltip
       placement='left'
       overlay={tooltipText}
@@ -37,23 +37,6 @@ const DiscoveryAccessibilityLinks = () => (
         <i className='g3-icon g3-icon--sm g3-icon--question-mark-bootstrap help-tooltip-icon' />
       </span>
     </Tooltip>
-
-    <a
-      className='g3-accessibility-nav-link g3-ring-on-focus'
-      href='#discovery-summary-statistics'
-      onClick={() => viewLinkedElement('discovery-summary-statistics')}
-    >
-      <span>Summary Statistics</span>
-    </a> |
-
-    <a
-      className='g3-accessibility-nav-link g3-ring-on-focus'
-      href='#discovery-tag-filters'
-      onClick={() => viewLinkedElement('discovery-tag-filters')}
-    >
-      <span>Tags</span>
-    </a> |
-
     <a
       className='g3-accessibility-nav-link g3-ring-on-focus'
       href='#discovery-table-of-records'
@@ -80,6 +63,6 @@ const DiscoveryAccessibilityLinks = () => (
       <span>Pagination</span>
     </a>
   </div>
-);
+));
 
 export default DiscoveryAccessibilityLinks;

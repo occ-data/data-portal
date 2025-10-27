@@ -5,8 +5,9 @@ import PropTypes from 'prop-types';
 import TopIconButton from './TopIconButton';
 import './TopBar.less';
 import { useArboristUI, hideSubmissionIfIneligible } from '../../configs';
-import { discoveryConfig } from '../../localconf';
+import { discoveryConfig, topNavLogin } from '../../localconf';
 import { userHasCreateOrUpdateOnAnyProject } from '../../authMappingUtils';
+import Banner from '../Banner';
 
 const isEmailAddress = (input) => {
   // regexp for checking if a string is possibly an email address, got from https://www.w3resource.com/javascript/form/email-validation.php
@@ -18,13 +19,31 @@ const isEmailAddress = (input) => {
  * NavBar renders row of nav-items of form { name, icon, link }
  */
 class TopBar extends Component {
+  componentDidMount() {
+    // clear global store of expired banners
+    if (this.props.closedBanners) {
+      // eslint-disable-next-line no-restricted-syntax
+      for (const [key, value] of Object.entries(this.props.closedBanners)) {
+        if (Date.now() > value) {
+          this.props.onResetBanner({ id: key });
+        }
+      }
+    }
+  }
+
   isActive = (id) => this.props.activeTab === id;
 
   render() {
     return (
       <div className='top-bar'>
-        <header className='top-bar__header'>
-          <nav className='top-bar__nav'>
+        <div className='top-bar__header'>
+          <nav className='top-bar__nav' aria-label='Top'>
+            <a
+              href='#main-content'
+              className='top-bar__link g3-ring-on-focus top-bar__link_skip'
+            >
+              Skip Navigation
+            </a>
             {
               this.props.topItems.filter(
                 (item) => {
@@ -56,13 +75,12 @@ class TopBar extends Component {
                         href={itemHref}
                         target='_blank'
                         rel='noopener noreferrer'
+                        onActiveTab={() => this.props.onActiveTab(itemHref)}
                       >
                         <TopIconButton
                           name={buttonText}
                           icon={item.icon}
                           isActive={this.isActive(itemHref)}
-                          onActiveTab={() => this.props.onActiveTab(itemHref)}
-                          tabIndex='-1'
                         />
                       </a>
                     );
@@ -72,13 +90,12 @@ class TopBar extends Component {
                       className='top-bar__link g3-ring-on-focus'
                       key={item.link}
                       to={item.link}
+                      onActiveTab={() => this.props.onActiveTab(item.link)}
                     >
                       <TopIconButton
                         name={buttonText}
                         icon={item.icon}
                         isActive={this.isActive(item.link)}
-                        onActiveTab={() => this.props.onActiveTab(item.link)}
-                        tabIndex='-1'
                       />
                     </Link>
                   );
@@ -89,20 +106,21 @@ class TopBar extends Component {
               this.props.user.username !== undefined && this.props.useProfileDropdown !== true
               && (
                 <React.Fragment>
-                  <Link className='top-bar__link g3-ring-on-focus' to='/identity'>
+                  <Link
+                    className='top-bar__link g3-ring-on-focus'
+                    to='/identity'
+                    onActiveTab={() => this.props.onActiveTab('/identity')}
+                  >
                     <TopIconButton
                       icon='user-circle'
                       name={this.props.user.username}
                       isActive={this.isActive('/identity')}
-                      onActiveTab={() => this.props.onActiveTab('/identity')}
-                      tabIndex='-1'
                     />
                   </Link>
                   <Link className='top-bar__link g3-ring-on-focus' to='#' onClick={this.props.onLogoutClick}>
                     <TopIconButton
                       icon='exit'
                       name='Logout'
-                      tabIndex='-1'
                     />
                   </Link>
                 </React.Fragment>
@@ -122,20 +140,23 @@ class TopBar extends Component {
                     </React.Fragment>
                   )}
                 >
-                  <Link className='top-bar__link g3-ring-on-focus' to='#'>
+                  <Link
+                    className='top-bar__link g3-ring-on-focus'
+                    to='#'
+                    onActiveTab={() => this.props.onActiveTab('/identity')}
+                  >
                     <TopIconButton
                       icon='user-circle'
                       name=''
                       isActive={this.isActive('/identity')}
-                      onActiveTab={() => this.props.onActiveTab('/identity')}
-                      tabIndex='-1'
                     />
                   </Link>
                 </Popover>
               )
             }
             {
-              typeof this.props.user.username === 'undefined'
+              topNavLogin
+              && typeof this.props.user.username === 'undefined'
               && (
                 <React.Fragment>
                   <Link
@@ -167,14 +188,25 @@ class TopBar extends Component {
                     <TopIconButton
                       icon='exit'
                       name='Login'
-                      tabIndex='-1'
                     />
                   </Link>
                 </React.Fragment>
               )
             }
           </nav>
-        </header>
+          {this.props.banners
+            && this.props.banners.length > 0
+            && this.props.banners.map((banner) => (
+              <Banner
+                id={banner.id}
+                type={banner.type}
+                message={banner.message}
+                resetDate={banner.resetDate}
+                onClose={this.props.onCloseBanner}
+                key={banner.id}
+              />
+            ))}
+        </div>
       </div>
     );
   }
@@ -189,12 +221,18 @@ TopBar.propTypes = {
   onActiveTab: PropTypes.func,
   onLogoutClick: PropTypes.func.isRequired,
   discovery: PropTypes.shape({ selectedResources: PropTypes.array }).isRequired,
+  banners: PropTypes.array,
+  closedBanners: PropTypes.array,
+  onCloseBanner: PropTypes.func.isRequired,
+  onResetBanner: PropTypes.func.isRequired,
 };
 
 TopBar.defaultProps = {
   useProfileDropdown: false,
   activeTab: '',
   onActiveTab: () => {},
+  banners: [],
+  closedBanners: [],
 };
 
 export default withRouter(TopBar);

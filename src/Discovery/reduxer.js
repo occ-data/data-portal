@@ -1,10 +1,12 @@
 import { connect } from 'react-redux';
-import DiscoveryActionBar from './DiscoveryActionBar';
+import DiscoveryActionBar from './DiscoveryActionBar/DiscoveryActionBar';
+import DiscoveryDetails from './DiscoveryDetails/DiscoveryDetails';
 
-const ReduxDiscoveryActionBar = (() => {
+export const ReduxDiscoveryActionBar = (() => {
   const mapStateToProps = (state) => ({
     user: state.user,
     discovery: state.discovery,
+    systemPopupActivated: !!state.popups?.systemUseWarnPopup,
   });
 
   const mapDispatchToProps = (dispatch) => ({
@@ -14,4 +16,12 @@ const ReduxDiscoveryActionBar = (() => {
   return connect(mapStateToProps, mapDispatchToProps)(DiscoveryActionBar);
 })();
 
-export default ReduxDiscoveryActionBar;
+export const ReduxDiscoveryDetails = (() => {
+  const mapStateToProps = (state) => ({
+    user: state.user,
+    userAuthMapping: state.userAuthMapping,
+    systemPopupActivated: !!state.popups?.systemUseWarnPopup,
+  });
+
+  return connect(mapStateToProps)(DiscoveryDetails);
+})();

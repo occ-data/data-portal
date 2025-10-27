@@ -6,6 +6,7 @@ vendors*.js
 workspaceBundle.js
 covid19Bundle.js
 nctBundle.js
+ecosystemBundle.js
 index.html
 workspaces.html
 custom/sponsors/
@@ -16,8 +17,11 @@ data/schema.graphql
 data/schema.json
 src/params.js
 src/css/themeoverrides.css
+public/*
 src/img/sponsors/gitops-sponsors/
 __generated__/
 *.log
 *.bak
 .DS_Store
+.dccache
+.vscode/*
