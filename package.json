@@ -26,7 +26,7 @@
     "clipboard-plus": "^1.1.0",
     "core-js": "^3.31.1",
     "crawler-user-agents": "^1.0.115",
-    "css-loader": "^3.4.2",
+    "css-loader": "^6.0.0",
     "d3-array": "^1.2.0",
     "d3-axis": "^3.0.0",
     "d3-ease": "^1.0.5",
@@ -96,7 +96,7 @@
     "relay-runtime": "^10.0.0",
     "semver": "^7.5.4",
     "string-similarity": "^3.0.0",
-    "style-loader": "^0.21.0",
+    "style-loader": "^3.0.0",
     "styled-components": "^5.3.7",
     "viz.js": "2.1.2"
   },
